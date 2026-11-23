@@ -61,4 +61,7 @@ npx expo run:ios
 It takes the part of the bottom safe area that ends up above the keyboard out of the auto detent, for an absolute footer that avoids the keyboard.
 
 - iOS (`TrueSheetViewController.mm`): the value is measured from the sheet's own geometry, so it also covers the floating sheet layout on iOS 26+.
-- Android (`TrueSheetDetentCalculator.kt`): the footer's absorbed inset, capped at the keyboard height. `footerOptions.keyboardOffset` is not taken into account.
+- Android (`TrueSheetDetentCalculator.kt`): the footer's absorbed inset, capped at the keyboard height.
+- `footerOptions.keyboardOffset` is taken into account on both platforms: it moves the footer by itself, so that much of the gap is already taken.
+
+The diff matches the branch [`fix/auto-detent-keyboard-footer-inset`](https://github.com/cgrossbyte/react-native-true-sheet/tree/fix/auto-detent-keyboard-footer-inset), which also adds a repro screen to the library's Expo example.

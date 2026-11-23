@@ -1,20 +1,43 @@
+diff --git a/android/src/main/java/com/lodev09/truesheet/TrueSheetViewController.kt b/android/src/main/java/com/lodev09/truesheet/TrueSheetViewController.kt
+index a1937f5..f047d81 100644
+--- a/android/src/main/java/com/lodev09/truesheet/TrueSheetViewController.kt
++++ b/android/src/main/java/com/lodev09/truesheet/TrueSheetViewController.kt
+@@ -1414,7 +1414,7 @@ class TrueSheetViewController(private val reactContext: ThemedReactContext) :
+   // MARK: - Footer Positioning
+   // =============================================================================
+ 
+-  var footerKeyboardOffset: Int = 0
++  override var footerKeyboardOffset: Int = 0
+ 
+   /**
+    * false keeps an absolute footer pinned to the sheet's bottom edge behind
 diff --git a/android/src/main/java/com/lodev09/truesheet/core/TrueSheetDetentCalculator.kt b/android/src/main/java/com/lodev09/truesheet/core/TrueSheetDetentCalculator.kt
-index da2b596921f552366ed024eabd6e64721e91af41..4408c22b0661ec82e6f3771bb589c2631a8ccdc0 100644
+index 6dbbb84..c7f4146 100644
 --- a/android/src/main/java/com/lodev09/truesheet/core/TrueSheetDetentCalculator.kt
 +++ b/android/src/main/java/com/lodev09/truesheet/core/TrueSheetDetentCalculator.kt
-@@ -132,8 +132,20 @@ class TrueSheetDetentCalculator(private val reactContext: ThemedReactContext) {
+@@ -27,6 +27,7 @@ interface TrueSheetDetentCalculatorDelegate {
+    */
+   val footerInsetAdjustment: Boolean
+   val footerAvoidsKeyboard: Boolean
++  val footerKeyboardOffset: Int
+   val peekContentHeight: Int
+   val contentBottomInset: Int
+   val maxContentHeight: Int?
+@@ -132,8 +133,22 @@ class TrueSheetDetentCalculator(private val reactContext: ThemedReactContext) {
      } else {
        0
      }
 +    // A footer that rises with the keyboard tucks its absorbed inset behind the
 +    // keyboard's top edge, so the auto detent no longer needs room for it —
 +    // counting it would open a gap between the content and the footer.
++    // footerKeyboardOffset moves the footer by itself and changes how much is tucked.
 +    val footerInsetBehindKeyboard = if (detent == -1.0 &&
++      footerHeight > 0 &&
 +      delegate?.absoluteFooter == true &&
 +      footerInAuto &&
 +      delegate?.footerAvoidsKeyboard == true
 +    ) {
-+      minOf(keyboardHeight, contentBottomInset)
++      minOf(keyboardHeight, contentBottomInset - (delegate?.footerKeyboardOffset ?: 0)).coerceAtLeast(0)
 +    } else {
 +      0
 +    }
@@ -25,17 +48,20 @@ index da2b596921f552366ed024eabd6e64721e91af41..4408c22b0661ec82e6f3771bb589c263
    }
  
 diff --git a/ios/TrueSheetViewController.mm b/ios/TrueSheetViewController.mm
-index 934afe4f67390beecc8da638b931660e7cf61ef5..642ceed452c2775f98a0f6919cc092dbd6fef0e0 100644
+index 934afe4..55d681e 100644
 --- a/ios/TrueSheetViewController.mm
 +++ b/ios/TrueSheetViewController.mm
-@@ -415,6 +415,22 @@ - (void)setKeyboardHeight:(CGFloat)keyboardHeight {
+@@ -415,6 +415,26 @@ - (void)setKeyboardHeight:(CGFloat)keyboardHeight {
    }
  }
  
-+// With the keyboard open UIKit still adds the bottom safe area
-+// below the detent, while a footer floating above the keyboard has dropped
-+// the inset from its height. The part of it that ends up above the keyboard
-+// would open a gap between the content and the footer.
++/**
++ * With the keyboard open UIKit still adds the bottom safe area below the
++ * detent, while a footer floating above the keyboard has dropped the inset
++ * from its height. The part that ends up above the keyboard would open a gap
++ * between the content and the footer. footerKeyboardOffset moves the footer
++ * by itself, so that much of the gap is already taken.
++ */
 +- (CGFloat)keyboardSafeAreaSurplus {
 +  UIView *view = self.viewIfLoaded;
 +  UIWindow *window = view.window;
@@ -43,15 +69,16 @@ index 934afe4f67390beecc8da638b931660e7cf61ef5..642ceed452c2775f98a0f6919cc092db
 +    return 0;
 +  }
 +
-+  CGPoint keyboardTopInWindow = CGPointMake(CGRectGetMidX(window.bounds), CGRectGetMaxY(window.bounds) - _keyboardHeight);
++  CGPoint keyboardTopInWindow =
++    CGPointMake(CGRectGetMidX(window.bounds), CGRectGetMaxY(window.bounds) - _keyboardHeight);
 +  CGFloat occluded = CGRectGetMaxY(view.bounds) - [view convertPoint:keyboardTopInWindow fromView:window].y;
-+  return MAX(0, view.safeAreaInsets.bottom + _keyboardHeight - occluded);
++  return MAX(0, view.safeAreaInsets.bottom + _keyboardHeight - occluded - _footerKeyboardOffset);
 +}
 +
  /**
   * Bottom inset excluded from the auto detent. A relative footer (or an
   * absolute one padding the scrollable) owns the sheet's bottom edge and
-@@ -426,7 +442,7 @@ - (CGFloat)autoDetentBottomInset {
+@@ -426,7 +446,7 @@ - (CGFloat)autoDetentBottomInset {
      return 0;
    }
  
